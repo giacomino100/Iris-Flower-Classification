@@ -8,7 +8,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn import metrics
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from flask import Flask, request, jsonify
 
+app = Flask(__name__)
+
+# Global variables to store the model, scaler, and feature names
+global_model = None
+global_scaler = None
+global_feature_names = None
 
 def check_duplicated(df):
     duplicates = df.duplicated()
@@ -52,6 +59,22 @@ def classify_iris(X, y):
     print(cm)
     return model, scaler, X.columns.tolist()
 
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    global global_model, global_scaler, global_feature_names
+
+    data = request.json
+    new_data = pd.DataFrame([data], columns=global_feature_names)
+
+    row = global_scaler.transform(new_data)
+    prediction = global_model.predict(row)
+
+    return jsonify({
+        "prediction": int(prediction[0]),
+        "class_name": iris.target_names[int(prediction[0])]
+    })
+
 if __name__ == '__main__':
     iris = datasets.load_iris()
     df = pd.DataFrame(
@@ -59,6 +82,7 @@ if __name__ == '__main__':
         columns=iris['feature_names'] + ['target']
     )
 
+    print(iris.target_names)
     #df.info(): Get information about the DataFrame
     #df.describe(): Get statistical summary of numerical columns
     #df.columns: See column names
@@ -73,10 +97,7 @@ if __name__ == '__main__':
     y = df['target']
 
     # Perform classification
-    model, scaler, feature_names = classify_iris(X, y)
-    new_data = pd.DataFrame([[5.1, 3.5, 5.0, 5.0]], columns=feature_names)
+    global_model, global_scaler, global_feature_names = classify_iris(X, y)
 
-    row = scaler.transform(new_data)
+    app.run(debug=True)
 
-    res = model.predict(row)
-    print(f"The predicted iris class is: {res}")
